@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>xterm scroll test</title>
+<link rel="stylesheet" href="/vendor/xterm.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    display: flex;
+    flex-direction: column;
+    background: #111;
+    color: #fff;
+  }
+  #header {
+    padding: 8px 16px;
+    background: #222;
+    font-size: 14px;
+  }
+  #terminal-container {
+    flex: 1;
+    padding: 4px;
+  }
+</style>
+</head>
+<body>
+<div id="header">
+  <button id="btn-100">Write 100 lines</button>
+  <button id="btn-500">Write 500 lines</button>
+  <button id="btn-clear">Clear</button>
+  <span id="info"></span>
+</div>
+<div id="terminal-container"></div>
+
+<script type="module">
+import { Terminal } from "./vendor/xterm.mjs";
+import { FitAddon } from "./vendor/addon-fit.mjs";
+
+const terminal = new Terminal({
+  fontSize: 14,
+  fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+  scrollback: 20000,
+  theme: {
+    background: "#0a0a14",
+    foreground: "#e0e0e0",
+  },
+  allowProposedApi: true,
+});
+
+const fitAddon = new FitAddon();
+terminal.loadAddon(fitAddon);
+terminal.open(document.getElementById("terminal-container"));
+fitAddon.fit();
+
+const info = document.getElementById("info");
+
+function updateInfo() {
+  const vp = terminal.element?.querySelector(".xterm-viewport");
+  info.textContent = `rows=${terminal.rows} cols=${terminal.cols} scrollTop=${vp?.scrollTop ?? '?'} scrollHeight=${vp?.scrollHeight ?? '?'} clientHeight=${vp?.clientHeight ?? '?'}`;
+}
+
+// Resize
+new ResizeObserver(() => {
+  fitAddon.fit();
+  updateInfo();
+}).observe(document.getElementById("terminal-container"));
+
+// Write test data
+function writeLines(n) {
+  const start = Date.now();
+  for (let i = 1; i <= n; i++) {
+    terminal.write(`\x1b[32mLine ${i}\x1b[0m - this is test output to check scrolling behavior\n`);
+  }
+  terminal.write(`\n\x1b[33m=== Wrote ${n} lines in ${Date.now() - start}ms ===\x1b[0m\n\nprompt$ `);
+  updateInfo();
+}
+
+document.getElementById("btn-100").onclick = () => { writeLines(100); };
+document.getElementById("btn-500").onclick = () => { writeLines(500); };
+document.getElementById("btn-clear").onclick = () => {
+  terminal.reset();
+  updateInfo();
+};
+
+// Log scroll events
+const vp = terminal.element?.querySelector(".xterm-viewport");
+if (vp) {
+  vp.addEventListener("scroll", () => {
+    console.log("scroll event:", vp.scrollTop, "/", vp.scrollHeight);
+  });
+}
+
+updateInfo();
+console.log("xterm test ready. Terminal rows:", terminal.rows, "cols:", terminal.cols);
+</script>
+</body>
+</html>
